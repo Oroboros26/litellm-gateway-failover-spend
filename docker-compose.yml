@@ -1,0 +1,25 @@
+services:
+  edge:                       # FastAPI: auth, PII redaction, tagging
+    build: .
+    ports: ["8080:8080"]
+    environment:
+      LITELLM_URL: http://litellm:4000
+    depends_on: [litellm]
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable   # pin a digest before real use
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    volumes: ["./litellm_config.yaml:/app/config.yaml:ro"]
+    env_file: .env
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on: [postgres, redis]
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: litellm
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+  redis:
+    image: redis:7
+volumes:
+  pgdata:

@@ -1,0 +1,37 @@
+# LiteLLM proxy config. Secrets come from env (see .env.example), never inline.
+model_list:
+  # One logical model name ("chat") backed by 3 providers -> load balancing + fallback.
+  - model_name: chat
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+      rpm: 500
+  - model_name: chat
+    litellm_params:
+      model: anthropic/claude-haiku-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      rpm: 300
+  # Local model, last-resort target. Ollama on the docker host.
+  - model_name: chat-local
+    litellm_params:
+      model: ollama/llama3.1:8b
+      api_base: http://host.docker.internal:11434
+
+router_settings:
+  routing_strategy: simple-shuffle   # weighted by rpm
+  num_retries: 2
+  timeout: 20
+  allowed_fails: 2                   # failures/min before a deployment is cooled down
+  cooldown_time: 15                  # seconds out of rotation
+  fallbacks: [{"chat": ["chat-local"]}]
+  redis_host: os.environ/REDIS_HOST
+  redis_port: 6379
+
+litellm_settings:
+  cache: true
+  cache_params: {type: redis, host: os.environ/REDIS_HOST, port: 6379, ttl: 600}
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL   # Postgres: virtual keys, budgets, spend logs
